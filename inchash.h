@@ -493,7 +493,7 @@
                     // mark slot as INCHASH_SLOT_EMPTY 
                     *slot_state = INCHASH_SLOT_EMPTY; 
 
-                    // Decrement slot occupants
+                    // Decrement table's slot occupants
                     table->occupants--;
 
                     // if key was found at home_slot return;
@@ -507,7 +507,7 @@
                     // is the only-one displacement it can be. Therefore:
                     if (!(*home_has_multiple_displacements)){
 
-                        // we can safely zero vvvv and goto clear;
+                        // we can safely zero vvv and return true;
                         *farthest_displacement_from_home_slot = 0;
 
                     // else if i is the farthest_displacement_from_home_slot
@@ -526,7 +526,7 @@
                                 (uint8_t*)(struct_offset + slot);
 
                             slot_ihome = // Slot home_index
-                                (uint8_t* )(
+                                (uint8_t*)(
                                 slot_state + INCHASH_SLOT_METADATA_IHOME_OFFSET);
 
                             slot_key =
@@ -658,7 +658,7 @@
                     memcpy(slot_key, key, table->key_len);
                     memcpy(slot_val, val, table->val_len);
 
-                    // Increment slot occupants
+                    // Increment table's slot occupants
                     table->occupants++;
 
                     return true;
@@ -680,8 +680,8 @@
                 probe += (i + 1); // i * (i + 1) / 2;
             }
 
-            // unreachable thanks to triangular probing
-            // ( unless i've done something wrong ... )
+            //  unreachable thanks to triangular probing.
+            // (unless i've done something horribly wrong)
             _inchash_unreachable();
         }
 
@@ -891,7 +891,7 @@
                 (uint8_t)(hash >> table->slotbit);
 
             const uint8_t *const struct_offset =
-                (uint8_t*)(table->map)
+                (const uint8_t*)(table->map)
                 + INCHASH_TABLES_METADATA_OFFSET
                 + offsetof(IncHash, hash)
                 + table->offset;
@@ -899,13 +899,13 @@
             const uint64_t home_slot =
                 home_index * table->slot_size;
 
-            uint8_t *const home_has_multiple_displacements = 
-                (uint8_t *const)
+            const uint8_t *const home_has_multiple_displacements =
+                (const uint8_t*)
                 (struct_offset + home_slot
                 + INCHASH_SLOT_METADATA_MULTI_OFFSET);
 
-            uint32_t *const farthest_displacement_from_home_slot = 
-                (uint32_t *const)
+            const uint32_t *const farthest_displacement_from_home_slot =
+                (const uint32_t*)
                 ( struct_offset + home_slot 
                 + INCHASH_SLOT_METADATA_DISPS_OFFSET);
 
