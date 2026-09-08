@@ -235,9 +235,40 @@ bool inchash_migrate_remaining(IncHash* table)
 
 
 ## Research
-This is an insignificant portion of a larger research project I'm working on, which I haven’t released yet.
+This is an insignificant portion of a larger research project I'm working on, which I haven’t released yet. Things related to:
 
-<sub><sup> (Under construction) </sup></sub>
+- *Hash Tables:*
+- - [Fibonacci Hashing: The Optimization that the World Forgot][4]
+- - [A fast alternative to the modulo reduction][9]
+- - [Triangular numbers mod 2^n][12]
+- *C & Filesystems:*
+- - *mmap():*
+- - - [Does mmap return aligned pointer values][5]
+- - - [Why in mmap PROT_READ equals PROT_EXEC][15]
+- - - [How to portably extend a file accessed using mmap()][8]
+- - - [CSCI 2021: mmap()'d files and pmap utility][24]
+- - *fallocate():*
+- - - [fallocate vs posix_fallocate][7]
+- - - [Is trimming beginning of a file using fallocate with FALLOC_FL_COLLAPSE_RANGE atomic on ext4?][23]
+- - *Filesystems:*
+- - - [filesystem that allows to insert blocks in file in O(1)?][10]
+- - - [What do f_bsize and f_frsize in struct statvfs stand for?][17]
+- - - [What can f_bsize be used for? (Is it similar to st_blksize?)][18]
+- - - [What's the difference between page and block in operating systems?][20]
+- - *C:*
+- - - [Is there a 128 bit integer in gcc?][6]
+- - - [A cool macro for optional arguments][16]
+- - - [Specifying size of enum type in C][21]
+- - - [Store C structs for multiple plarform use][22]
+- - - [How to use ftruncate in c99 without warning][25]
+- - - [Is errno thread-safe][26]
+- *Similar Projects:*
+- - [Diskhash - Disk-based, persistent hash tables][1]
+- - [Stasher - Linear-hash table on disk][3]
+- - [SetDisk - on-disk storage system][2]
+- *Other:*
+- - [Writing My Own Database From Scratch][11]
+- - [Wiki - CDB (constant database)][27]
 
 
 ## Donation
