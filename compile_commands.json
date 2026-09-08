@@ -1,0 +1,14 @@
+[
+  {
+    "file": "main.c",
+    "arguments": [
+      "gcc",
+      "main.c",
+      "-std=c99",
+      "-D_POSIX_C_SOURCE=200809L",
+      "-D_GNU_SOURCE",
+      "-DINCHASH_IMPLEMENTATION"
+    ],
+    "directory": "/home/xou/Desktop/xou/programming/c/inchash/"
+  }
+]
