@@ -195,6 +195,36 @@ static inline uint32_t inchash_occupants(IncHash* table);
   */
 ```
 
+```c
+bool inchash_migrate(IncHash* table, uint32_t steps);
+```
+
+```c
+/**
+* @brief Migrates a `steps`-amount of slots.
+*
+* @param table    An IncHash struct.
+* @param steps    The amount of check-steps.
+*
+* @return Always `true` unless error (errno)
+*/
+```
+
+```c
+bool inchash_migrate_remaining(IncHash* table)
+```
+
+```c
+/**
+* @brief Migrates all the remaining slots from the old table.
+*
+* @param table    An IncHash struct.
+*
+* @return Always `true` unless error (errno)
+*/
+```
+
+
 
 ## Research
 This is an insignificant portion of a larger research project I'm working on, which I haven’t released yet.

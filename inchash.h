@@ -135,6 +135,7 @@
     };
 
 
+    // Main Functions
     bool  inchash_open  (IncHash* table, const char* path, int flags, mode_t mode);
     bool  inchash_sync  (IncHash* table);
     bool  inchash_close (IncHash* table);
@@ -142,7 +143,11 @@
     void* inchash_get   (IncHash* table, const void* key);
     bool  inchash_del   (IncHash* table, const void* key);
 
-    static inline uint32_t inchash_occupants(IncHash* table);
+    // Extra Functions
+    static inline uint32_t
+         inchash_occupants         (IncHash* table);
+    bool inchash_migrate_remaining (IncHash* table);
+    bool inchash_migrate           (IncHash* table, uint32_t steps);
 
 
     #if defined(INCHASH_IMPLEMENTATION)
@@ -689,24 +694,25 @@
 
 
 
-        static inline bool _inchash_migrate(IncHash* old_table, IncHash* table)
+        static inline bool _inchash_migrate(IncHash* old_table, IncHash* table, uint32_t steps)
         {
-            // if OLD-table exists do table->cur_steps amount of migration-steps
+            // if OLD-table exists do _steps amount of migration-steps
             if (old_table){
 
-                const uint32_t remaining = 
+                steps = steps ? steps : old_table->cur_steps;
+
+                const uint32_t remaining =
                     old_table->n_slots - old_table->cur_index;
 
-                const uint32_t steps = 
-                    ( old_table->cur_steps < remaining )
-                    ? old_table->cur_steps : remaining;
+                const uint32_t _steps =
+                    ( steps < remaining ) ? steps : remaining;
 
                 const uint8_t *const old_struct_offset =
                     (const uint8_t*)(old_table->map)
                     + INCHASH_TABLES_METADATA_OFFSET
                     + offsetof(IncHash, hash);
 
-                for (uint32_t i=0; i<steps; ++i){
+                for (uint32_t i=0; i<_steps; ++i){
 
                     const uint8_t *const cur_slot_state = 
                         (const uint8_t *)
@@ -973,8 +979,32 @@
 
 
 
-        //TODO: bool inchash_migrate(IncHash* table, uint32_t steps){}
+        /**
+         * @brief Migrates a `steps`-amount of slots.
+         *
+         * @param table    An IncHash struct.
+         * @param steps    The amount of check-steps.
+         *
+         * @return Always `true` unless error (errno)
+         */
+        bool inchash_migrate(IncHash* table, uint32_t steps)
+        {
+            return _inchash_migrate(table->old, table, steps);
+        }
 
+
+
+        /**
+         * @brief Migrates all the remaining slots from the old table.
+         *
+         * @param table    An IncHash struct.
+         *
+         * @return Always `true` unless error (errno)
+         */
+        bool inchash_migrate_remaining(IncHash* table)
+        {
+            return _inchash_migrate(table->old, table, UINT32_MAX);
+        }
 
 
         /**
@@ -992,8 +1022,7 @@
         {
             // so practically we are setting always in the newest table
             return _inchash_set(table, key, val, true) &&
-                   _inchash_migrate(table->old, table);
-                   
+                   _inchash_migrate(table->old, table, 0);
         }
 
 
@@ -1011,8 +1040,7 @@
         bool inchash_del(IncHash* table, const void* key)
         {
             return _inchash_del(table, key) &&
-                   _inchash_migrate(table->old, table);
-                
+                   _inchash_migrate(table->old, table, 0);
         }
 
 
