@@ -182,6 +182,14 @@ bool inchash_del(IncHash* table, const void* key)
 
 2. **Extra Functions:**
 ```c
+static inline uint32_t
+     inchash_occupants         (IncHash* table);
+bool inchash_migrate_remaining (IncHash* table);
+bool inchash_migrate           (IncHash* table, uint32_t steps);
+```
+
+
+```c
 static inline uint32_t inchash_occupants(IncHash* table);
 ```
 
