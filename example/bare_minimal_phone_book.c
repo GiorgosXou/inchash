@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 /**
  * gcc -fsanitize=address,undefined bare_minimal_phone_book.c -std=c99 -D_POSIX_C_SOURCE=200809L -o bare_minimal_phone_book
  *
