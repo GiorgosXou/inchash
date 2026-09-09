@@ -1,5 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 
+> [!CAUTION]
+> A few bug were [found here](https://www.reddit.com/r/C_Programming/comments/1wb12he/comment/p8r93p0) I'm working right now on fixing them.
 
 ## IncHash - A Disk Based Hash Table
 
