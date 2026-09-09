@@ -52,7 +52,8 @@ for anything more than that you should look into the [examples](./examples) fold
 - Metadata lives on the same pages as slots themselves.
 - Metadata per slot occupies `8` whole bytes.
 - No benchmarks, feel free to contribute.
-- **Early** release no thread-safety yet.
+- Early release no thread-safety yet.
+- No cross-endian compatibility.
 
 
 
