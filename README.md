@@ -1,8 +1,5 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 
-> [!CAUTION]
-> A few bug were [found here](https://www.reddit.com/r/C_Programming/comments/1wb12he/comment/p8r93p0) I'm working right now on fixing them.
-
 ## IncHash - A Disk Based Hash Table
 
 A general-purpose, header-only C99 library for Unix-like systems, implementing a disk-based, dynamically resizable, fixed-slot, *(open-addressed)* hash table with incremental rehashing, Fibonacci-hashing *(Knuth's multiplicative method)*, per home-slot probe-bound metadata *(with additional early-exit logic)*, and triangular probing, designed for modern extent-based filesystems.

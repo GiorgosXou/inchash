@@ -440,6 +440,13 @@
 
         bool _inchash_del(IncHash* table, const void* key)
         {
+            // if there's an old table attempt to delete first there.
+            // if found inside the old table and got deleted then
+            // store it in case nothing is found in the new too.
+            bool is_old_deleted = (table->old) // see #6
+                ? _inchash_del(table->old, key)
+                : false;
+
             const uint32_t hash = // Multiplied by Knuth's constant.
                 table->hash(key, table->key_len) * 2654435769U; 
 
@@ -585,9 +592,9 @@
                 }
 
                 // if key wasn't found at none of the probed-slots 
-                // look into the OLD table and if it doesn't exist return false
+                // Then return whether was deleted in old table (is_old_deleted)
                 if (i == 0)
-                    return table->old ? _inchash_del(table->old, key) : false;
+                    return is_old_deleted;
 
                 // Decrement triangular probe
                 probe -= i; // i * (i + 1) / 2;
@@ -596,8 +603,18 @@
 
 
 
-        bool _inchash_set(IncHash* table, const void* key, const void* val, bool overwrite)
+        bool _inchash_set(IncHash* table, const void* key, const void* val, bool migrates)
         {
+            void* found = inchash_get(table, key); // see #6
+
+            // If key-value pair already existed
+            // and is not migrating just overwrite there.
+            if (found && !migrates){
+                memcpy(found, val, table->val_len);
+                return true;
+            }
+
+            // Otherwise start looking for a free slot.
             const uint32_t hash = // Multiplied by Knuth's constant.
                 table->hash(key, table->key_len) * 2654435769U; 
 
@@ -677,7 +694,8 @@
                     *slot_ihome == (uint8_t)(home_index) &&
                     memcmp(slot_key, key, table->key_len) == 0) {
 
-                    if (overwrite)
+                    // if only is not migrating overwrite the value
+                    if (!migrates)
                         memcpy(slot_val, val, table->val_len);
 
                     return true;
@@ -732,7 +750,7 @@
                         // insert into the new and delete from old table, but 
                         // without overwriting the slot, in case user set it
                         // before (using the same key) in the NEW table 
-                        _inchash_set(table, cur_slot_key, cur_slot_val, false);
+                        _inchash_set(table, cur_slot_key, cur_slot_val, true);
                         _inchash_del(old_table, cur_slot_key);
 
                     }
@@ -756,10 +774,12 @@
                     // subtract OLD file_size & collapse the old_table's blocks
                     table->file_size -= old_table->file_size;
 
-                    fallocate( 
-                        table->fd, 
-                        FALLOC_FL_COLLAPSE_RANGE, 
-                        0, old_table->file_size);
+                    // attempt to collapse\resize // see #6
+                    if (fallocate(table->fd, 
+                        FALLOC_FL_COLLAPSE_RANGE, 0, old_table->file_size)){
+                        perror("_inchash_migrate() -> collapse -> fallocate()");
+                        return false;
+                    }
 
                     // free old_table
                     free(old_table);
@@ -1021,7 +1041,7 @@
         bool inchash_set(IncHash* table, const void* key, const void* val)
         {
             // so practically we are setting always in the newest table
-            return _inchash_set(table, key, val, true) &&
+            return _inchash_set(table, key, val, false) &&
                    _inchash_migrate(table->old, table, 0);
         }
 
@@ -1099,7 +1119,9 @@
          */
         bool inchash_close(IncHash* table) 
         {
-            bool ret = inchash_sync(table);
+            bool ret = (table->flags & PROT_WRITE)  // see #6
+                ? inchash_sync(table)
+                : true;
 
             // it's NULL if not anything else, don't panic 
             free(table->old);
@@ -1163,5 +1185,10 @@
  *    for home is 0 (ftruncate)
  *    for the 1st displacement still 0
  *    for the 2nd displacement and on is 1
+ *
+ *
+ * OTHER:
+ *  - ###6 Fixed issues thanks to skeeto's comment:
+ *    https://www.reddit.com/r/C_Programming/comments/1wb12he/comment/p8r93p0
  */
 
