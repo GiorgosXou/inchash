@@ -603,18 +603,116 @@
 
 
 
+        void* _inchash_get(IncHash* table, const void* key, bool both)
+        {
+            const uint32_t hash = // Multiplied by Knuth's constant.
+                table->hash(key, table->key_len) * 2654435769U;
+
+            const uint32_t home_index = // extract top table->slotbit bits.
+                hash >> (32 - table->slotbit);
+
+            const uint8_t fingerprint =
+                (uint8_t)(hash >> table->slotbit);
+
+            const uint8_t *const struct_offset =
+                (const uint8_t*)(table->map)
+                + INCHASH_TABLES_METADATA_OFFSET
+                + offsetof(IncHash, hash)
+                + table->offset;
+
+            const uint64_t home_slot =
+                home_index * table->slot_size;
+
+            const uint8_t *const home_has_multiple_displacements =
+                (const uint8_t*)
+                (struct_offset + home_slot
+                + INCHASH_SLOT_METADATA_MULTI_OFFSET);
+
+            const uint32_t *const farthest_displacement_from_home_slot =
+                (const uint32_t*)
+                ( struct_offset + home_slot
+                + INCHASH_SLOT_METADATA_DISPS_OFFSET);
+
+            // if we know that home_slot has only one displacement (or none)
+            // then once we check for home_slot, we can safely skip probing
+            // and directly check for the farthest_displacement_from_home_slot.
+            const uint32_t step =
+                (*home_has_multiple_displacements)
+                ? 1 : (((*farthest_displacement_from_home_slot) *
+                       ((*farthest_displacement_from_home_slot) + 1) / 2));
+
+            const uint32_t far_step =
+                (*home_has_multiple_displacements)
+                ? 1 : (*farthest_displacement_from_home_slot);
+
+            uint32_t farthest =
+                (*farthest_displacement_from_home_slot);
+
+            uint32_t probe = 0; // i * (i + 1) / 2;
+            
+            for(uint32_t i = 0; ; i += step){
+
+                const uint64_t slot = // is home_slot if i=0
+                    ((home_index + probe) & table->slot_mask) * table->slot_size;
+
+                const uint8_t *const slot_state = // Slot State
+                    struct_offset + slot;
+
+                const uint8_t *const slot_ihome = // home_index
+                    slot_state + INCHASH_SLOT_METADATA_IHOME_OFFSET;
+
+                const uint8_t *const slot_fingerprint = // Slot Fingerprint
+                    slot_state + INCHASH_SLOT_METADATA_FINGS_OFFSET;
+
+                const void *const slot_key =
+                    slot_state + INCHASH_SLOT_METADATA_OFFSET;
+
+                // If slot is not empty and all:
+                //  fingerprints, home indexes & keys, match
+                if (*slot_state &&
+                    *slot_fingerprint == fingerprint &&
+                    *slot_ihome == (uint8_t)(home_index) &&
+                    memcmp(slot_key, key, table->key_len) == 0) {
+
+                    // found, return pointer to the `slot_val`
+                    return (void*)(slot_key + table->key_len);
+
+                // else if we've looked all
+                } else if (!farthest){
+                    break;
+                }
+
+                farthest -= far_step;
+                probe += (i + step); // i * (i + 1) / 2;
+            }
+
+            // if nothing was found and the old table exist, look at that.
+            // else return NULL.
+            return (both && table->old)
+                ? inchash_get(table->old, key) // (see also idea #3)
+                : NULL;
+        }
+
+
+
         bool _inchash_set(IncHash* table, const void* key, const void* val, bool migrates)
         {
-            void* found = inchash_get(table, key); // see #6
+            // `migrates` determines whether it will look
+            // inside `both` tables or just inside the new one
+            void* found = // see #6
+                _inchash_get(table, key, !migrates);
 
-            // If key-value pair already existed
-            // and is not migrating just overwrite there.
-            if (found && !migrates){
-                memcpy(found, val, table->val_len);
+            // if the key was found
+            if(found){
+                // if it is in the process of migration
+                if (!migrates) // first overwrite it &
+                    memcpy(found, val, table->val_len);
+                // (otherwise or not) then return
                 return true;
             }
 
-            // Otherwise start looking for a free slot.
+            // Otherwise start looking for a free slot
+            // in the new table to insert.
             const uint32_t hash = // Multiplied by Knuth's constant.
                 table->hash(key, table->key_len) * 2654435769U; 
 
@@ -652,20 +750,20 @@
                 uint8_t *const slot_state =
                     struct_offset + slot;
 
-                uint8_t *const slot_ihome =
-                    slot_state + INCHASH_SLOT_METADATA_IHOME_OFFSET;
-
-                uint8_t *const slot_fingerprint = // Slot Fingerprint
-                    slot_state + INCHASH_SLOT_METADATA_FINGS_OFFSET;
-
-                void *const slot_key =
-                    slot_state + INCHASH_SLOT_METADATA_OFFSET;
-
-                void *const slot_val =
-                    slot_key + table->key_len;
-
                 // if (probe)-slot is empty (INCHASH_SLOT_EMPTY) insert pair
                 if (!(*slot_state)) {
+
+                    uint8_t *const slot_ihome =
+                        slot_state + INCHASH_SLOT_METADATA_IHOME_OFFSET;
+
+                    uint8_t *const slot_fingerprint = // Slot Fingerprint
+                        slot_state + INCHASH_SLOT_METADATA_FINGS_OFFSET;
+
+                    void *const slot_key =
+                        slot_state + INCHASH_SLOT_METADATA_OFFSET;
+
+                    void *const slot_val =
+                        slot_key + table->key_len;
 
                     *slot_state = INCHASH_SLOT_OCCUPIED;
                     *slot_ihome = (uint8_t)(home_index);
@@ -684,19 +782,6 @@
 
                     // Increment table's slot occupants
                     table->occupants++;
-
-                    return true;
-
-                // else-if fingerprints & home indexes & keys match then 
-                // update existing pair if overwrite is true and return
-                }else if (
-                    *slot_fingerprint == fingerprint &&
-                    *slot_ihome == (uint8_t)(home_index) &&
-                    memcmp(slot_key, key, table->key_len) == 0) {
-
-                    // if only is not migrating overwrite the value
-                    if (!migrates)
-                        memcpy(slot_val, val, table->val_len);
 
                     return true;
                 }
@@ -909,92 +994,8 @@
          */
         void* inchash_get(IncHash* table, const void* key)
         {
-            const uint32_t hash = // Multiplied by Knuth's constant.
-                table->hash(key, table->key_len) * 2654435769U; 
-
-            const uint32_t home_index = // extract top table->slotbit bits.
-                hash >> (32 - table->slotbit);
-
-            const uint8_t fingerprint =
-                (uint8_t)(hash >> table->slotbit);
-
-            const uint8_t *const struct_offset =
-                (const uint8_t*)(table->map)
-                + INCHASH_TABLES_METADATA_OFFSET
-                + offsetof(IncHash, hash)
-                + table->offset;
-
-            const uint64_t home_slot =
-                home_index * table->slot_size;
-
-            const uint8_t *const home_has_multiple_displacements =
-                (const uint8_t*)
-                (struct_offset + home_slot
-                + INCHASH_SLOT_METADATA_MULTI_OFFSET);
-
-            const uint32_t *const farthest_displacement_from_home_slot =
-                (const uint32_t*)
-                ( struct_offset + home_slot 
-                + INCHASH_SLOT_METADATA_DISPS_OFFSET);
-
-            // if we know that home_slot has only one displacement (or none) 
-            // then once we check for home_slot, we can safely skip probing 
-            // and directly check for the farthest_displacement_from_home_slot.
-            const uint32_t step = 
-                (*home_has_multiple_displacements)
-                ? 1 : (((*farthest_displacement_from_home_slot) * 
-                       ((*farthest_displacement_from_home_slot) + 1) / 2));
-
-            const uint32_t far_step = 
-                (*home_has_multiple_displacements)
-                ? 1 : (*farthest_displacement_from_home_slot);
-
-            uint32_t farthest = 
-                (*farthest_displacement_from_home_slot);
-
-            uint32_t probe = 0; // i * (i + 1) / 2;
-            
-            for(uint32_t i = 0; ; i += step){
-
-                const uint64_t slot = // is home_slot if i=0
-                    ((home_index + probe) & table->slot_mask) * table->slot_size;
-
-                const uint8_t *const slot_state = // Slot State
-                    struct_offset + slot;
-
-                const uint8_t *const slot_ihome = // home_index
-                    slot_state + INCHASH_SLOT_METADATA_IHOME_OFFSET;
-
-                const uint8_t *const slot_fingerprint = // Slot Fingerprint
-                    slot_state + INCHASH_SLOT_METADATA_FINGS_OFFSET;
-
-                const void *const slot_key =
-                    slot_state + INCHASH_SLOT_METADATA_OFFSET;
-
-                // If slot is not empty and all: 
-                //  fingerprints, home indexes & keys, match
-                if (*slot_state && 
-                    *slot_fingerprint == fingerprint &&
-                    *slot_ihome == (uint8_t)(home_index) &&
-                    memcmp(slot_key, key, table->key_len) == 0) {
-
-                    // found, return pointer to the `slot_val`
-                    return (void*)(slot_key + table->key_len);
-
-                // else if we've looked all
-                } else if (!farthest){
-                    break;
-                }
-
-                farthest -= far_step;
-                probe += (i + step); // i * (i + 1) / 2;
-            }
-
-            // if nothing was found and the old table exist, look at that.
-            // else return NULL.
-            return table->old 
-                ? inchash_get(table->old, key) // (see also idea #3)
-                : NULL;
+            // true means check both tables
+            return _inchash_get(table, key, true);
         }
 
 
