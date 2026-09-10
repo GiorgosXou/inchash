@@ -514,7 +514,7 @@
                     if(!i)
                         return true;
 
-                    // if not i is 0, (aka. home_slot) then
+                    // if i is not 0, (aka. home_slot) then
                     // it means that the current pair is displaced, so:
                     // if home_slot has only one displacement (not multiple)
                     // it means that the farthest_displacement_from_home_slot
