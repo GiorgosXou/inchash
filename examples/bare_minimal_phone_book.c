@@ -12,7 +12,7 @@
 #include <stdlib.h>
 
 
-int main(int argc, char *argv[])
+int main()
 {
     IncHash table = {
         .fn_type = FNV1A, // Hash function type.    (eg. FNV1A        )

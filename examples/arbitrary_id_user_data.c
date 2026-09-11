@@ -22,7 +22,7 @@ typedef struct {
 } User;
 
 
-int main(int argc, char *argv[])
+int main()
 {
     // Initializing an IncHash structure.
     IncHash table = {
