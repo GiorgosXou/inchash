@@ -5,3 +5,12 @@ test.c
 test_file.c
 tst
 
+# other
+compile_commands.json
+
+# examples binaries
+/examples/arbitrary_id_user_data
+/examples/bare_minimal_phone_book
+/examples/userdata.inch
+/examples/phonebook.inch
+
