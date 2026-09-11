@@ -105,6 +105,8 @@
     #define INCHASH_TABLES_METADATA_OLD false
 
 
+
+    typedef void* (*inchcpy)(void *restrict __dest, const void *restrict __src, size_t __n); // default = `memcpy()`
     typedef uint32_t (*hashinc)(const void *key, uint32_t len);
     typedef struct IncHash IncHash;
 
@@ -142,6 +144,7 @@
     bool  inchash_set   (IncHash* table, const void* key, const void* val);
     void* inchash_get   (IncHash* table, const void* key);
     bool  inchash_del   (IncHash* table, const void* key);
+    bool  inchash_mod   (IncHash* table, inchcpy update, const void* key, const void* ctx);
 
     // Extra Functions
     static inline uint32_t
@@ -695,7 +698,7 @@
 
 
 
-        bool _inchash_set(IncHash* table, const void* key, const void* val, bool migrates)
+        bool _inchash_set(IncHash* table, inchcpy update, const void* key, const void* val, bool migrates)
         {
             // `migrates` determines whether it will look
             // inside `both` tables or just inside the new one
@@ -705,8 +708,8 @@
             // if the key was found
             if(found){
                 // if it is not in the process of migration
-                if (!migrates) // first overwrite it &
-                    memcpy(found, val, table->val_len);
+                if (!migrates) // first overwrite it and...
+                    update(found, val, table->val_len);
                 // (otherwise or not) ... then return
                 return true;
             }
@@ -778,7 +781,7 @@
                         ? i : *farthest_displacement_from_home_slot;
 
                     memcpy(slot_key, key, table->key_len);
-                    memcpy(slot_val, val, table->val_len);
+                    update(slot_val, val, table->val_len);
 
                     // Increment table's slot occupants
                     table->occupants++;
@@ -835,7 +838,7 @@
                         // insert into the new and delete from old table, but 
                         // without overwriting the slot, in case user set it
                         // before (using the same key) in the NEW table 
-                        _inchash_set(table, cur_slot_key, cur_slot_val, true);
+                        _inchash_set(table, memcpy, cur_slot_key, cur_slot_val, true);
                         _inchash_del(old_table, cur_slot_key);
 
                     }
@@ -1041,10 +1044,30 @@
          */
         bool inchash_set(IncHash* table, const void* key, const void* val)
         {
-            return _inchash_set(table, key, val, false) &&
+            return _inchash_set(table, memcpy, key, val, false) &&
                    _inchash_migrate(table->old, table, 0);
         }
 
+
+        /**
+         * @brief Modifies\Updates key-value pair using `ctx` passed to the
+         * `update` callback. If `key` does not already exist, its slot still
+         * gets marked as occupied. Additionally, it does fixed-step incremental
+         * migration-checks (usually `old_table->cur_steps`) if `table->old`
+         * exists and auto-resizes the file when needed.
+         *
+         * @param table   An IncHash struct.
+         * @param update  A callback function.
+         * @param key     Key associated with value.
+         * @param ctx     Value\Context passed to the `update` callback.
+         *
+         * @return `true` unless migration fails. (errno)
+         */
+        bool inchash_mod(IncHash* table, inchcpy update, const void* key, const void* ctx)
+        {
+            return _inchash_set(table, update, key, ctx, false) &&
+                   _inchash_migrate(table->old, table, 0);
+        }
 
 
         /**
