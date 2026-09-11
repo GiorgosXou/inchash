@@ -704,10 +704,10 @@
 
             // if the key was found
             if(found){
-                // if it is in the process of migration
+                // if it is not in the process of migration
                 if (!migrates) // first overwrite it &
                     memcpy(found, val, table->val_len);
-                // (otherwise or not) then return
+                // (otherwise or not) ... then return
                 return true;
             }
 
@@ -1041,7 +1041,6 @@
          */
         bool inchash_set(IncHash* table, const void* key, const void* val)
         {
-            // so practically we are setting always in the newest table
             return _inchash_set(table, key, val, false) &&
                    _inchash_migrate(table->old, table, 0);
         }
