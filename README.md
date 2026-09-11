@@ -2,7 +2,7 @@
 
 ## IncHash - A Disk Based Hash Table
 
-A general-purpose, header-only C99 library for Unix-like systems, implementing a disk-based, dynamically resizable, fixed-slot, *(open-addressed)* hash table with incremental rehashing, Fibonacci-hashing *(Knuth's multiplicative method)*, per home-slot probe-bound metadata *(with additional early-exit logic)*, and triangular probing, designed for modern extent-based filesystems.
+A general-purpose, header-only C99 library for Unix-like systems, implementing a disk-based, dynamically resizable, fixed-slot, *(open-addressed)* hash table with Fibonacci hashing *(Knuth's multiplicative method)*, triangular probing, per-home-slot probe-bound metadata *(with additional early-exit logic)*, partial in-place value updates *(without relocating entries)* and incremental rehashing, all designed for modern extent-based filesystems.
 
 ## Getting Started
 Here's a very minimal example of how you should use this library:
@@ -69,6 +69,7 @@ bool  inchash_close (IncHash* table);
 bool  inchash_set   (IncHash* table, const void* key, const void* val);
 void* inchash_get   (IncHash* table, const void* key);
 bool  inchash_del   (IncHash* table, const void* key);
+bool  inchash_mod   (IncHash* table, inchcpy update, const void* key, const void* ctx);
 ```
 
 
@@ -141,6 +142,7 @@ bool inchash_set(IncHash* table, const void* key, const void* val);
   */
 ```
 
+
 ```c
 void* inchash_get(IncHash* table, const void* key);
 ```
@@ -175,6 +177,28 @@ bool inchash_del(IncHash* table, const void* key)
   * @param key     Key associated with value.
   *
   * @return `true` unless nothing was deleted or migration fails. (errno)
+  */
+```
+
+
+```c
+bool inchash_mod(IncHash* table, inchcpy update, const void* key, const void* ctx)
+```
+
+```c
+/**
+  * @brief Modifies\Updates key-value pair using `ctx` passed to the
+  * `update` callback. If `key` does not already exist, its slot still
+  * gets marked as occupied. Additionally, it does fixed-step incremental
+  * migration-checks (usually `old_table->cur_steps`) if `table->old`
+  * exists and auto-resizes the file when needed.
+  *
+  * @param table   An IncHash struct.
+  * @param update  A callback function.
+  * @param key     Key associated with value.
+  * @param ctx     Value\Context passed to the `update` callback.
+  *
+  * @return `true` unless migration fails. (errno)
   */
 ```
 
