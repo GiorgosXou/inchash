@@ -606,7 +606,20 @@
 
 
 
-        void* _inchash_get(IncHash* table, const void* key, bool both)
+        /**
+         * @brief Gets a value associated with key.
+         *
+         * @param table   An IncHash struct.
+         * @param key     Key associated with value.
+         *
+         * @return A (borrowed) pointer to the value stored in the mmap'd table.
+         * The caller must NOT `free()` or `munmap()` the returned pointer.
+         * The pointer remains valid until the table is unmapped, either
+         * during resizing or when `inchash_close()` is called. The caller
+         * may copy the value with `memcpy()` while the pointer remains valid.
+         * If it does not exist, it simply returns `NULL`.
+         */
+        void* inchash_get(IncHash* table, const void* key)
         {
             const uint32_t hash = // Multiplied by Knuth's constant.
                 table->hash(key, table->key_len) * 2654435769U;
@@ -691,31 +704,15 @@
 
             // if nothing was found and the old table exist, look at that.
             // else return NULL.
-            return (both && table->old)
+            return (table->old)
                 ? inchash_get(table->old, key) // (see also idea #3)
                 : NULL;
         }
 
 
 
-        bool _inchash_set(IncHash* table, inchcpy update, const void* key, const void* val, bool migrates)
+        void _inchash_new(IncHash* table, inchcpy update, const void* key, const void* val)
         {
-            // `migrates` determines whether it will look
-            // inside `both` tables or just inside the new one
-            void* found = // see #6
-                _inchash_get(table, key, !migrates);
-
-            // if the key was found
-            if(found){
-                // if it is not in the process of migration
-                if (!migrates) // first overwrite it and...
-                    update(found, val, table->val_len);
-                // (otherwise or not) ... then return
-                return true;
-            }
-
-            // Otherwise start looking for a free slot
-            // in the new table to insert.
             const uint32_t hash = // Multiplied by Knuth's constant.
                 table->hash(key, table->key_len) * 2654435769U; 
 
@@ -786,7 +783,7 @@
                     // Increment table's slot occupants
                     table->occupants++;
 
-                    return true;
+                    return;
                 }
 
                 // Increment triangular probe
@@ -835,10 +832,14 @@
                             ( cur_slot_key 
                             + old_table->key_len);
 
-                        // insert into the new and delete from old table, but 
-                        // without overwriting the slot, in case user set it
-                        // before (using the same key) in the NEW table 
-                        _inchash_set(table, memcpy, cur_slot_key, cur_slot_val, true);
+                        // Since `inchash_set` always checks whether a key
+                        // already exists in both tables, a key that previously
+                        // belonged to the old table is guaranteed not to exist
+                        // in the new table, regardless of what has been set
+                        // since. We can therefore insert it directly with
+                        // `_inchash_new` and remove the old entry with
+                        // `_inchash_del`.
+                        _inchash_new(table, memcpy, cur_slot_key, cur_slot_val);
                         _inchash_del(old_table, cur_slot_key);
 
                     }
@@ -984,26 +985,6 @@
 
 
         /**
-         * @brief Gets a value associated with key. 
-         *
-         * @param table   An IncHash struct.
-         * @param key     Key associated with value.
-         *
-         * @return A (borrowed) pointer to the value stored in the mmap'd table.
-         * The caller must NOT `free()` or `munmap()` the returned pointer.
-         * The pointer remains valid until the table is unmapped, either
-         * during resizing or when `inchash_close()` is called. The caller
-         * may copy the value with `memcpy()` while the pointer remains valid.
-         */
-        void* inchash_get(IncHash* table, const void* key)
-        {
-            // true means check both tables
-            return _inchash_get(table, key, true);
-        }
-
-
-
-        /**
          * @brief Migrates a `steps`-amount of slots.
          *
          * @param table    An IncHash struct.
@@ -1044,17 +1025,29 @@
          */
         bool inchash_set(IncHash* table, const void* key, const void* val)
         {
-            return _inchash_set(table, memcpy, key, val, false) &&
-                   _inchash_migrate(table->old, table, 0);
+            void* found = inchash_get(table, key); // see #6
+
+            // If key was found inside one of the tables
+            // simply `memcpy` the new `val` exactly there
+            if (found)
+                memcpy(found, val, table->val_len);
+
+            // Else insert it directly into the new table
+            else
+                _inchash_new(table, memcpy, key, val);
+
+            // Finally do a few migration-checks.
+            return _inchash_migrate(table->old, table, 0);
         }
 
 
         /**
-         * @brief Modifies\Updates key-value pair using `ctx` passed to the
-         * `update` callback. If `key` does not already exist, its slot still
-         * gets marked as occupied. Additionally, it does fixed-step incremental
-         * migration-checks (usually `old_table->cur_steps`) if `table->old`
-         * exists and auto-resizes the file when needed.
+         * @brief Modifies\Updates an existing key-value pair using `ctx`
+         * passed to the `update` callback. If `key` does not already exist,
+         * `NULL` is passed to the the `update`-callback's `__dest` parameter.
+         * Additionally, it does fixed-step incremental migration-checks
+         * (usually `old_table->cur_steps`) if `table->old` exists and
+         * auto-resizes the file when needed.
          *
          * @param table   An IncHash struct.
          * @param update  A callback function.
@@ -1065,8 +1058,9 @@
          */
         bool inchash_mod(IncHash* table, inchcpy update, const void* key, const void* ctx)
         {
-            return _inchash_set(table, update, key, ctx, false) &&
-                   _inchash_migrate(table->old, table, 0);
+            // update & do a few migration-checks.
+            update(inchash_get(table, key), ctx, table->val_len);
+            return _inchash_migrate(table->old, table, 0);
         }
 
 

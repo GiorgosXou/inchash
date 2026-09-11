@@ -159,6 +159,7 @@ void* inchash_get(IncHash* table, const void* key);
   * The pointer remains valid until the table is unmapped, either
   * during resizing or when `inchash_close()` is called. The caller
   * may copy the value with `memcpy()` while the pointer remains valid.
+  * If it does not exist, it simply returns `NULL`.
   */
 ```
 
@@ -187,11 +188,12 @@ bool inchash_mod(IncHash* table, inchcpy update, const void* key, const void* ct
 
 ```c
 /**
-  * @brief Modifies\Updates key-value pair using `ctx` passed to the
-  * `update` callback. If `key` does not already exist, its slot still
-  * gets marked as occupied. Additionally, it does fixed-step incremental
-  * migration-checks (usually `old_table->cur_steps`) if `table->old`
-  * exists and auto-resizes the file when needed.
+  * @brief Modifies\Updates an existing key-value pair using `ctx`
+  * passed to the `update` callback. If `key` does not already exist,
+  * `NULL` is passed to the the `update`-callback's `__dest` parameter.
+  * Additionally, it does fixed-step incremental migration-checks
+  * (usually `old_table->cur_steps`) if `table->old` exists and
+  * auto-resizes the file when needed.
   *
   * @param table   An IncHash struct.
   * @param update  A callback function.
