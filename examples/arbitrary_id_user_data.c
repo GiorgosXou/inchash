@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 /**
- * gcc -fsanitize=address,undefined arbitrary_id_user_data.c -std=c99 -D_POSIX_C_SOURCE=200809L -o userdata
+ * gcc -fsanitize=address,undefined arbitrary_id_user_data.c -std=c99 -D_POSIX_C_SOURCE=200809L -o arbitrary_id_user_data
  *
  * A simple example demonstrating how to use IncHash to 
  * store, retrieve, and delete user records using 
