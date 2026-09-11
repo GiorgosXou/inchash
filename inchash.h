@@ -4,12 +4,13 @@
  * # IncHash - A Disk Based Hash Table
  *
  * A disk-based, dynamically resizable, fixed-slot, (open-addressed) hash table
- * with incremental rehashing, Fibonacci-hashing (Knuth's multiplicative method),
- * per home-slot probe-bound metadata, and triangular probing, designed 
- * for Unix-like systems with modern extent-based filesystems.
+ * with Fibonacci-hashing (Knuth's multiplicative method),triangular probing,
+ * per-home-slot probe-bound metadata (with additional early-exit logic), partial
+ * in-place value updates (without relocating entries) and incremental rehashing,
+ * all designed for Unix-like systems with modern extent-based filesystems.
  *
  *
- *  Draw a visualization of the structure with text borders and stuff
+ *  TODO: Draw a visualization of the structure with text borders and stuff
  */
 
   
