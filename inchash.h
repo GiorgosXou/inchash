@@ -33,8 +33,15 @@
 
 
     enum {
+        // FNV-1a generic hash function
+        // (taken from klib's khashl.h)
         FNV1A,
+        // splitmix64 (taken from klib's khashl.h)
+        // https://nullprogram.com/blog/2018/07/31/
+        // WARN: Assumes alignment: `alignof(uint64_t)`
         SPLITMIX64,
+        // fmix32 portion of MurmurHash3 (taken from klib's khashl.h)
+        // WARN: Assumes alignment: `alignof(uint32_t)`
         MURMURMIX32
     };
 
@@ -179,7 +186,7 @@
         /**
          * @brief splitmix64 (taken from klib's khashl.h)
          *
-         * @param key 
+         * @param key   Assumes an alignment: `alignof(uint64_t)`
          * @param len   (unused, assumes sizeof 8-bytes)
          *
          * @return 
@@ -200,7 +207,7 @@
         /**
          * @brief fmix32 portion of MurmurHash3 (taken from klib's khashl.h)
          *
-         * @param key 
+         * @param key   Assumes an alignment: `alignof(uint32_t)`
          * @param len   (unused, assumes sizeof 4-bytes)
          *
          * @return 
