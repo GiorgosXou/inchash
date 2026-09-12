@@ -116,6 +116,9 @@
     #define INCHASH_TABLES_METADATA_OFFSET sizeof(uint32_t)
     #define INCHASH_TABLES_METADATA_NEW true
     #define INCHASH_TABLES_METADATA_OLD false
+    #define INCHASH_CORE_METADATA_OFFSET sizeof(uint32_t)
+    #define INCHASH_CORE_METADATA_NEW true
+    #define INCHASH_CORE_METADATA_OLD false
 
 
 
@@ -329,7 +332,7 @@
                     + 3) & ~3; // 4-aligned
 
                 table->file_size = ((( // round-up to page/table->f_bsize
-                    ( INCHASH_TABLES_METADATA_OFFSET
+                    ( INCHASH_CORE_METADATA_OFFSET
                     + offsetof(IncHash, hash)
                     + table->n_slots * table->slot_size) 
                     + table->f_bsize - 1) / table->f_bsize) * table->f_bsize);
@@ -350,10 +353,10 @@
                 }
 
                 // Prepare tables metadata
-                const uint32_t meta = INCHASH_TABLES_METADATA_NEW; // bool
+                const uint32_t meta = INCHASH_CORE_METADATA_NEW; // bool
 
                 // Write table metadata that there is no OLD table only NEW
-                if (write(table->fd, &meta, INCHASH_TABLES_METADATA_OFFSET) == -1){
+                if (write(table->fd, &meta, INCHASH_CORE_METADATA_OFFSET) == -1){
                     perror("inchash_open() -> write(meta)"); 
                     close(table->fd);
                     return false;
@@ -372,7 +375,7 @@
                 uint64_t old_file_size = 0;
 
                 // read whether or not migration\OLD-table exists
-                read(table->fd, &is_new_table, INCHASH_TABLES_METADATA_OFFSET);
+                read(table->fd, &is_new_table, INCHASH_CORE_METADATA_OFFSET);
 
                 // if initial table is the OLD table then load it first.
                 if (!is_new_table){
@@ -387,7 +390,7 @@
                     // read sizeof directly into OLD table and seek to NEW
                     read (table->fd, table->old, offsetof(IncHash, hash));
                     lseek(table->fd, table->old->file_size // old file_size
-                        + INCHASH_TABLES_METADATA_OFFSET
+                        + INCHASH_CORE_METADATA_OFFSET
                         , SEEK_SET
                     );
 
@@ -474,7 +477,7 @@
 
             const uint8_t *const struct_offset =
                 (uint8_t*)(table->map)
-                + INCHASH_TABLES_METADATA_OFFSET
+                + INCHASH_CORE_METADATA_OFFSET
                 + offsetof(IncHash, hash)
                 + table->offset;
 
@@ -645,7 +648,7 @@
 
             const uint8_t *const struct_offset =
                 (const uint8_t*)(table->map)
-                + INCHASH_TABLES_METADATA_OFFSET
+                + INCHASH_CORE_METADATA_OFFSET
                 + offsetof(IncHash, hash)
                 + table->offset;
 
@@ -737,7 +740,7 @@
 
             uint8_t *const struct_offset =
                 (uint8_t*)(table->map)
-                + INCHASH_TABLES_METADATA_OFFSET
+                + INCHASH_CORE_METADATA_OFFSET
                 + offsetof(IncHash, hash)
                 + table->offset;
 
@@ -825,7 +828,7 @@
 
                 const uint8_t *const old_struct_offset =
                     (const uint8_t*)(old_table->map)
-                    + INCHASH_TABLES_METADATA_OFFSET
+                    + INCHASH_CORE_METADATA_OFFSET
                     + offsetof(IncHash, hash);
 
                 for (uint32_t i=0; i<_steps; ++i){
@@ -940,7 +943,7 @@
                 const uint64_t new_file_size = 
                     table->file_size +
                     ((( // round-up to page/table->f_bsize
-                    ( INCHASH_TABLES_METADATA_OFFSET
+                    ( INCHASH_CORE_METADATA_OFFSET
                     + offsetof(IncHash, hash) // NOTE: where * 2 happens
                     + ((uint64_t)table->n_slots * 2) * table->slot_size)
                     + table->f_bsize - 1) / table->f_bsize) * table->f_bsize);
@@ -974,7 +977,7 @@
                     return false;
                 }
 
-                // NOTE: we don't need to set INCHASH_TABLES_METADATA_OLD;
+                // NOTE: we don't need to set INCHASH_CORE_METADATA_OLD;
                 // ftruncate zeros data already for us.
 
                 // copy table into OLD
@@ -1106,20 +1109,20 @@
         bool inchash_sync(IncHash* table){
             if (table->old){
                 memcpy(
-                    (uint8_t*)table->map + INCHASH_TABLES_METADATA_OFFSET
+                    (uint8_t*)table->map + INCHASH_CORE_METADATA_OFFSET
                     , table->old
                     , offsetof(IncHash, hash));
                 // Write table metadata that there is OLD table and NEW
                 // NOTE: #5
-                ((uint32_t *)table->map)[0] = INCHASH_TABLES_METADATA_OLD;
+                ((uint32_t *)table->map)[0] = INCHASH_CORE_METADATA_OLD;
             }else{
                 // Write table metadata that there is no OLD table only NEW
                 // NOTE: #5
-                ((uint32_t *)table->map)[0] = INCHASH_TABLES_METADATA_NEW;
+                ((uint32_t *)table->map)[0] = INCHASH_CORE_METADATA_NEW;
             }
 
             memcpy(
-                (uint8_t*)table->map + table->offset + INCHASH_TABLES_METADATA_OFFSET 
+                (uint8_t*)table->map + table->offset + INCHASH_CORE_METADATA_OFFSET 
                 , table
                 , offsetof(IncHash, hash));
 
