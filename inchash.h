@@ -58,6 +58,11 @@
     #endif
 
 
+    /**
+     * ====================================
+     * METADATA PER SLOT - TOTAL OF 8 BYTES
+     * ====================================
+     */
     #define INCHASH_SLOT_METADATA_STATE_SIZE sizeof(uint8_t)  /* STATE = State */
     #define INCHASH_SLOT_METADATA_IHOME_SIZE sizeof(uint8_t)  /* IHOME = Home index */
     #define INCHASH_SLOT_METADATA_MULTI_SIZE sizeof(uint8_t)  /* MULTI = Has Multiple Displacements */
