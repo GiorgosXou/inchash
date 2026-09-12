@@ -1052,7 +1052,7 @@
         /**
          * @brief Modifies\Updates an existing key-value pair using `ctx`
          * passed to the `update` callback. If `key` does not already exist,
-         * `NULL` is passed to the the `update`-callback's `__dest` parameter.
+         * `NULL` is passed to the `update`-callback's `__dest` parameter.
          * Additionally, it does fixed-step incremental migration-checks
          * (usually `old_table->cur_steps`) if `table->old` exists and
          * auto-resizes the file when needed.
