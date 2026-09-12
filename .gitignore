@@ -1,9 +1,12 @@
-main.c
-main2.c
-read.c
-test.c
-test_file.c
-tst
+/main.c
+/main2.c
+/read.c
+/test.c
+/test_file.c
+/tst
+/bench.c
+/bench2.c
+/test2.c
 
 # other
 compile_commands.json
