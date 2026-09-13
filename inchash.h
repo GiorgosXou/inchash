@@ -59,6 +59,78 @@
 
 
     /**
+     * ======================================
+     * CORE - PREFERENCES +++ VERSION CONTROL
+     * ======================================
+     */
+
+    #define INCHASH_CORE_VERSION 1
+
+    // Predefined hash-function. (Reduces indirect calls)
+    #if defined(INCHASH_CORE_HASH)
+        #if (INCHASH_CORE_HASH == 0)
+            #define INCHASH_HASH inchash_fnv1a
+        #elif  (INCHASH_CORE_HASH == 1)
+            #define INCHASH_HASH inchash_mix64
+        #elif  (INCHASH_CORE_HASH == 2)
+            #define INCHASH_HASH inchash_mix32
+        #else
+            #error "`INCHASH_CORE_HASH` Must be: FNV1A, SPLITMIX64 or MURMURMIX32"
+        #endif
+    #else
+        #define INCHASH_HASH table->hash
+    #endif
+
+    // Disables resizability logic.
+    // #define INCHASH_CORE_UNRESIZABLE
+
+    /**
+     * ======================================
+     * CORE METADATA - TOTAL OF 4 BYTES [...]
+     * ======================================
+     */
+    #define INCHASH_CORE_METADATA_VERSION_SIZE sizeof(uint8_t)
+    #define INCHASH_CORE_METADATA_HAS_OLD_SIZE sizeof(uint8_t)
+    #define INCHASH_CORE_METADATA_NOTHIN0_SIZE sizeof(uint8_t)
+    #define INCHASH_CORE_METADATA_NOTHIN1_SIZE sizeof(uint8_t)
+
+    // VERSION = Version control.
+    #define INCHASH_CORE_METADATA_VERSION_OFFSET 0
+
+    // HAS_OLD = Whether it has an old table or not
+    #define INCHASH_CORE_METADATA_HAS_OLD_OFFSET \
+    (                                            \
+        INCHASH_CORE_METADATA_VERSION_OFFSET +   \
+        INCHASH_CORE_METADATA_VERSION_SIZE       \
+    )
+
+    // NOTHIN0 = Unused, spare bytes.
+    #define INCHASH_CORE_METADATA_NOTHIN0_OFFSET \
+    (                                            \
+        INCHASH_CORE_METADATA_HAS_OLD_OFFSET +   \
+        INCHASH_CORE_METADATA_HAS_OLD_SIZE       \
+    )
+
+    // NOTHIN1 = Unused, spare bytes.
+    #define INCHASH_CORE_METADATA_NOTHIN1_OFFSET \
+    (                                            \
+        INCHASH_CORE_METADATA_NOTHIN0_OFFSET +   \
+        INCHASH_CORE_METADATA_NOTHIN0_SIZE       \
+    )
+
+    // Total core metadata offset
+    #define INCHASH_CORE_METADATA_OFFSET         \
+    (                                            \
+        INCHASH_CORE_METADATA_NOTHIN1_OFFSET +   \
+        INCHASH_CORE_METADATA_NOTHIN1_SIZE       \
+    )
+
+    // Determins if there is an old table or not.
+    #define INCHASH_CORE_METADATA_NEW false
+    #define INCHASH_CORE_METADATA_OLD true
+
+
+    /**
      * ====================================
      * METADATA PER SLOT - TOTAL OF 8 BYTES
      * ====================================
@@ -111,15 +183,6 @@
     #define INCHASH_SLOT_EMPTY false 
     #define INCHASH_SLOT_OCCUPIED true
 
-    // NOTE: #5 don't same me for that :P
-    // TODO: Add Version control to tables metadata etc.
-    #define INCHASH_TABLES_METADATA_OFFSET sizeof(uint32_t)
-    #define INCHASH_TABLES_METADATA_NEW true
-    #define INCHASH_TABLES_METADATA_OLD false
-    #define INCHASH_CORE_METADATA_OFFSET sizeof(uint32_t)
-    #define INCHASH_CORE_METADATA_NEW true
-    #define INCHASH_CORE_METADATA_OLD false
-
 
 
     typedef void* (*inchcpy)(void *restrict __dest, const void *restrict __src, size_t __n); // default = `memcpy()`
@@ -153,6 +216,7 @@
     };
 
 
+
     // Main Functions
     bool  inchash_open  (IncHash* table, const char* path, int flags, mode_t mode);
     bool  inchash_sync  (IncHash* table);
@@ -163,10 +227,13 @@
     bool  inchash_mod   (IncHash* table, inchcpy update, const void* key, const void* ctx);
 
     // Extra Functions
-    static inline uint32_t
-         inchash_occupants         (IncHash* table);
-    bool inchash_migrate_remaining (IncHash* table);
-    bool inchash_migrate           (IncHash* table, uint32_t steps);
+    static inline uint32_t inchash_occupants (IncHash* table);
+
+    #if !defined(INCHASH_CORE_UNRESIZABLE)
+        bool inchash_migrate_remaining (IncHash* table);
+        bool inchash_migrate           (IncHash* table, uint32_t steps);
+    #endif
+
 
 
     #if defined(INCHASH_IMPLEMENTATION)
@@ -317,6 +384,11 @@
                     return false;
                 }
 
+                // if there is a pre-defined core hash-function set it
+                #if defined(INCHASH_CORE_HASH)
+                    table->fn_type = INCHASH_CORE_HASH;
+                #endif
+
                 // Set Defaults and stuff...
                 table->hash = get_hash_function_from(table->fn_type);
                 table->n_slots = 1ULL << table->slotbit; // 2^slotbit
@@ -352,15 +424,31 @@
                     return false;
                 }
 
-                // Prepare tables metadata
-                const uint32_t meta = INCHASH_CORE_METADATA_NEW; // bool
-
-                // Write table metadata that there is no OLD table only NEW
-                if (write(table->fd, &meta, INCHASH_CORE_METADATA_OFFSET) == -1){
-                    perror("inchash_open() -> write(meta)"); 
+                // Prepare version core-metadata 
+                // Prepare has_old core-metadata 
+                const uint8_t version = INCHASH_CORE_VERSION;
+                const uint8_t has_old = INCHASH_CORE_METADATA_NEW;
+                                                                 
+                // Write core-metadata version
+                if (write(table->fd, 
+                        &version, INCHASH_CORE_METADATA_VERSION_SIZE) == -1){
+                    perror("inchash_open() -> write(version)"); 
                     close(table->fd);
                     return false;
                 }
+
+                // Write core-metadata that there is no OLD table only NEW
+                if (write(table->fd, 
+                        &has_old, INCHASH_CORE_METADATA_HAS_OLD_SIZE) == -1){
+                    perror("inchash_open() -> write(has_old)"); 
+                    close(table->fd);
+                    return false;
+                }
+
+                // Skip unused core-metadata bytes (NOTE: #8)
+                lseek(table->fd, 
+                    INCHASH_CORE_METADATA_NOTHIN0_SIZE
+                  + INCHASH_CORE_METADATA_NOTHIN1_SIZE, SEEK_CUR);
 
                 // Write table into the file and check if written.
                 if (write(table->fd, table, offsetof(IncHash, hash)) == -1){
@@ -371,14 +459,33 @@
 
             // todo: also check if it is a valid file via seek and greater than
             }else{
-                uint32_t is_new_table = true; // bool
+                uint8_t inch_version;
+                uint8_t is_old_table;
+
+                // Read version
+                read(table->fd, &inch_version, 
+                    INCHASH_CORE_METADATA_VERSION_SIZE);
+
+                // Check if versions match together
+                if (inch_version != INCHASH_CORE_VERSION){
+                    fprintf(stderr, "IncHash file, version missmatch.\n");
+                    close(table->fd);
+                    return false;
+                }
+
+                // Read whether or not migration\OLD-table exists.
+                read(table->fd, &is_old_table, 
+                    INCHASH_CORE_METADATA_HAS_OLD_SIZE);
+
+                // Skip unused core-metadata bytes. (NOTE: #8)
+                lseek(table->fd, 
+                    INCHASH_CORE_METADATA_NOTHIN0_SIZE
+                  + INCHASH_CORE_METADATA_NOTHIN1_SIZE, SEEK_CUR);
+
                 uint64_t old_file_size = 0;
 
-                // read whether or not migration\OLD-table exists
-                read(table->fd, &is_new_table, INCHASH_CORE_METADATA_OFFSET);
-
                 // if initial table is the OLD table then load it first.
-                if (!is_new_table){
+                if (is_old_table){
                     table->old = (IncHash*)malloc(sizeof(IncHash));
 
                     if (table->old == NULL){
@@ -404,7 +511,17 @@
                 // read sizeof directly into NEW table
                 read(table->fd, table, offsetof(IncHash, hash));
 
-                // set the hash-function used for inchash_set\get
+                // if there is a pre-defined core hash-function
+                // Check if the file matches that function
+                #if defined(INCHASH_CORE_HASH)
+                    if (table->fn_type != INCHASH_CORE_HASH){
+                        fprintf(stderr, "INCHASH_CORE_HASH vs fn_type mismatch.\n");
+                        close(table->fd);
+                        return false;
+                    }
+                #endif
+
+                // set the hash-function used for inchash_set\get [...]
                 table->hash = get_hash_function_from(table->fn_type);
 
                 // set offset of old-table file_size
@@ -449,7 +566,6 @@
                 table->old->map = table->map;
                 table->old->fd = table->fd;
                 table->old->old = NULL;
-
             }
 
             return true;
@@ -467,7 +583,7 @@
                 : false;
 
             const uint32_t hash = // Multiplied by Knuth's constant.
-                table->hash(key, table->key_len) * 2654435769U; 
+                INCHASH_HASH(key, table->key_len) * 2654435769U; // table->hash
 
             const uint32_t home_index = // extract top table->slotbit bits.
                 hash >> (32 - table->slotbit);
@@ -571,8 +687,8 @@
                             if (*slot_state && 
                                 *slot_ihome == (uint8_t)(home_index)){
 
-                                const uint32_t prob_hash =
-                                    table->hash(slot_key, table->key_len) 
+                                const uint32_t prob_hash = // table->hash
+                                    INCHASH_HASH(slot_key, table->key_len)
                                     * 2654435769U; 
 
                                 const uint32_t prob_home_index = 
@@ -638,7 +754,7 @@
         void* inchash_get(IncHash* table, const void* key)
         {
             const uint32_t hash = // Multiplied by Knuth's constant.
-                table->hash(key, table->key_len) * 2654435769U;
+                INCHASH_HASH(key, table->key_len) * 2654435769U; // table->hash
 
             const uint32_t home_index = // extract top table->slotbit bits.
                 hash >> (32 - table->slotbit);
@@ -730,7 +846,7 @@
         void _inchash_new(IncHash* table, inchcpy update, const void* key, const void* val)
         {
             const uint32_t hash = // Multiplied by Knuth's constant.
-                table->hash(key, table->key_len) * 2654435769U; 
+                INCHASH_HASH(key, table->key_len) * 2654435769U; // table->hash
 
             const uint32_t home_index = // extract top table->slotbit bits.
                 hash >> (32 - table->slotbit);
@@ -813,226 +929,240 @@
 
 
 
-        static inline bool _inchash_migrate(IncHash* old_table, IncHash* table, uint32_t steps)
-        {
-            // if OLD-table exists do _steps amount of migration-steps
-            if (old_table){
+        // if user has disabled realizability
+        #if defined(INCHASH_CORE_UNRESIZABLE)
 
-                steps = steps ? steps : old_table->cur_steps;
+            // compiler is smart enough to inline it :P
+            static inline bool _inchash_migrate(IncHash* old_table, IncHash* table, uint32_t steps){
+                // return `true` if we haven't reached maximum else `false`
+                return (table->occupants != table->maximum);
+            }
 
-                const uint32_t remaining =
-                    old_table->n_slots - old_table->cur_index;
+        #else
 
-                const uint32_t _steps =
-                    ( steps < remaining ) ? steps : remaining;
+            static inline bool _inchash_migrate(IncHash* old_table, IncHash* table, uint32_t steps)
+            {
+                // if OLD-table exists do _steps amount of migration-steps
+                if (old_table){
 
-                const uint8_t *const old_struct_offset =
-                    (const uint8_t*)(old_table->map)
-                    + INCHASH_CORE_METADATA_OFFSET
-                    + offsetof(IncHash, hash);
+                    steps = steps ? steps : old_table->cur_steps;
 
-                for (uint32_t i=0; i<_steps; ++i){
+                    const uint32_t remaining =
+                        old_table->n_slots - old_table->cur_index;
 
-                    const uint8_t *const cur_slot_state = 
-                        (const uint8_t *)
-                        ( old_struct_offset 
-                        + old_table->cur_index * old_table->slot_size);
+                    const uint32_t _steps =
+                        ( steps < remaining ) ? steps : remaining;
 
-                    // Check if slot exists
-                    if (*cur_slot_state){
-                        const void *const cur_slot_key = 
-                            ( cur_slot_state 
-                            + INCHASH_SLOT_METADATA_OFFSET);
+                    const uint8_t *const old_struct_offset =
+                        (const uint8_t*)(old_table->map)
+                        + INCHASH_CORE_METADATA_OFFSET
+                        + offsetof(IncHash, hash);
 
-                        const void *const cur_slot_val = 
-                            ( cur_slot_key 
-                            + old_table->key_len);
+                    for (uint32_t i=0; i<_steps; ++i){
 
-                        // Since `inchash_set` always checks whether a key
-                        // already exists in both tables, a key that previously
-                        // belonged to the old table is guaranteed not to exist
-                        // in the new table, regardless of what has been set
-                        // since. We can therefore insert it directly with
-                        // `_inchash_new` and remove the old entry with
-                        // `_inchash_del`.
-                        _inchash_new(table, memcpy, cur_slot_key, cur_slot_val);
-                        _inchash_del(old_table, cur_slot_key);
+                        const uint8_t *const cur_slot_state = 
+                            (const uint8_t *)
+                            ( old_struct_offset 
+                            + old_table->cur_index * old_table->slot_size);
 
+                        // Check if slot exists
+                        if (*cur_slot_state){
+                            const void *const cur_slot_key = 
+                                ( cur_slot_state 
+                                + INCHASH_SLOT_METADATA_OFFSET);
+
+                            const void *const cur_slot_val = 
+                                ( cur_slot_key 
+                                + old_table->key_len);
+
+                            // Since `inchash_set` always checks whether a key
+                            // already exists in both tables, a key that previously
+                            // belonged to the old table is guaranteed not to exist
+                            // in the new table, regardless of what has been set
+                            // since. We can therefore insert it directly with
+                            // `_inchash_new` and remove the old entry with
+                            // `_inchash_del`.
+                            _inchash_new(table, memcpy, cur_slot_key, cur_slot_val);
+                            _inchash_del(old_table, cur_slot_key);
+
+                        }
+                        // increment current-index of migration-cursor.
+                        old_table->cur_index++;
                     }
-                    // increment current-index of migration-cursor.
-                    old_table->cur_index++;
-                }
 
-                // if no more occupants, remove old table from file.
-                if (!old_table->occupants){
+                    // if no more occupants, remove old table from file.
+                    if (!old_table->occupants){
 
-                    // reset table
-                    table->old = NULL;
-                    table->offset = 0;
+                        // reset table
+                        table->old = NULL;
+                        table->offset = 0;
+
+                        // We set `errno` to `ENOENT` for `inchash_del`
+                        errno = ENOENT;
+
+                        // unmap the whole file
+                        if(munmap(table->map, table->file_size)){
+                            perror("_inchash_migrate() -> collapse -> munmap()");
+                            return false;
+                        }
+
+                        // subtract OLD file_size & collapse the old_table's blocks
+                        table->file_size -= old_table->file_size;
+
+                        // attempt to collapse\resize // see #6
+                        if (fallocate(table->fd, 
+                            FALLOC_FL_COLLAPSE_RANGE, 0, old_table->file_size)){
+                            perror("_inchash_migrate() -> collapse -> fallocate()");
+                            return false;
+                        }
+
+                        // free old_table
+                        free(old_table);
+
+                        // remap the file
+                        table->map = mmap(NULL, table->file_size, table->flags, 
+                            MAP_SHARED, table->fd, 0
+                        );
+
+                        // check if it was successful
+                        if (table->map == MAP_FAILED){
+                            perror("_inchash_migrate() -> collapse -> mmap()");
+                            return false;
+                        }
+
+                    // We `else` and not `return` directly afterwards, because if
+                    // user performs only `inchash_set()` consecutively, he may
+                    // already have migrated all the OLD slots & (at the same time)
+                    // reached the maximum capacity of the NEW one, therefore 
+                    // in that case it will be necessary to expand\double-the-NEW
+                    // immediately after cropping the OLD.
+                    }else{
+                        return true;
+                    }
+
+                } 
+
+                // if full create a new table & keep old as reference for migration
+                if (table->occupants == table->maximum){
 
                     // We set `errno` to `ENOENT` for `inchash_del`
                     errno = ENOENT;
 
-                    // unmap the whole file
+                    if (table->slotbit == 31){
+                        fprintf(stderr, 
+                            "You reached the maximum limit of 2^31 slots.\n");
+                        errno = EOVERFLOW;
+                        return false;
+                    }
+
+                    // Sanity Check (see also #0)
+                    if (table->n_slots*2 > UINT64_MAX / table->slot_size){
+                        fprintf(stderr, 
+                            "You reached maximum slots based on slot_size.\n");
+                        errno = EOVERFLOW;
+                        return false;
+                    }
+
+                    IncHash *tmp_table =
+                        (IncHash*)malloc(sizeof(IncHash));
+
+                    if (tmp_table == NULL){
+                        perror("_inchash_migrate() -> malloc()");
+                        return false;
+                    }
+
+                    const uint64_t old_file_size = 
+                        table->file_size;
+
+                    const uint64_t new_file_size = 
+                        table->file_size +
+                        ((( // round-up to page/table->f_bsize
+                        ( INCHASH_CORE_METADATA_OFFSET
+                        + offsetof(IncHash, hash) // NOTE: where * 2 happens
+                        + ((uint64_t)table->n_slots * 2) * table->slot_size)
+                        + table->f_bsize - 1) / table->f_bsize) * table->f_bsize);
+
+                    // Sanity Check (see also #0)
+                    if (new_file_size < old_file_size){
+                        fprintf(stderr, 
+                            "You reached maximum slots based on file_size.\n");
+                        errno = EOVERFLOW;
+                        return false;
+                    }
+
                     if(munmap(table->map, table->file_size)){
-                        perror("_inchash_migrate() -> collapse -> munmap()");
+                        perror("_inchash_migrate() -> munmap()");
                         return false;
                     }
 
-                    // subtract OLD file_size & collapse the old_table's blocks
-                    table->file_size -= old_table->file_size;
-
-                    // attempt to collapse\resize // see #6
-                    if (fallocate(table->fd, 
-                        FALLOC_FL_COLLAPSE_RANGE, 0, old_table->file_size)){
-                        perror("_inchash_migrate() -> collapse -> fallocate()");
+                    if (ftruncate(table->fd, new_file_size)){
+                        perror("_inchash_migrate() -> ftruncate()");
                         return false;
                     }
-
-                    // free old_table
-                    free(old_table);
-
-                    // remap the file
-                    table->map = mmap(NULL, table->file_size, table->flags, 
+                    
+                    // Memory-Map the file
+                    table->map = mmap(NULL, new_file_size, table->flags, 
                         MAP_SHARED, table->fd, 0
                     );
 
                     // check if it was successful
                     if (table->map == MAP_FAILED){
-                        perror("_inchash_migrate() -> collapse -> mmap()");
+                        perror("_inchash_migrate() -> mmap()");
                         return false;
                     }
 
-                // We `else` and not `return` directly afterwards, because if
-                // user performs only `inchash_set()` consecutively, he may
-                // already have migrated all the OLD slots & (at the same time)
-                // reached the maximum capacity of the NEW one, therefore 
-                // in that case it will be necessary to expand\double-the-NEW
-                // immediately after cropping the OLD.
-                }else{
-                    return true;
+                    // NOTE: ##7 We don't yet write core-metadata
+                    // we leave it for inchash_sync. 
+
+                    // copy table into OLD
+                    memcpy(tmp_table, table, sizeof(IncHash));
+
+                    // Reset table to NEW
+                    table->old = tmp_table;            // reference OLD from NEW
+                    table->slotbit++;                  // add one bit (power-of-2)
+                    table->offset = old_file_size;     // set offset from OLD
+                    table->file_size = new_file_size;  // set new file_size
+                    table->n_slots *= 2;               // double the number-of-slots
+                    table->maximum *= 2;               // double the maximum of ^^^^
+                    table->occupants = 0;              // reset occupants
+                    table->cur_index = 0;              // reset Migration-cursor
+                    table->slot_mask = (table->n_slots -1);
                 }
 
-            } 
-
-            // if full create a new table & keep old as reference for migration
-            if (table->occupants == table->maximum){
-
-                // We set `errno` to `ENOENT` for `inchash_del`
-                errno = ENOENT;
-
-                if (table->slotbit == 31){
-                    fprintf(stderr, 
-                        "You reached the maximum limit of 2^31 slots.\n");
-                    errno = EOVERFLOW;
-                    return false;
-                }
-
-                // Sanity Check (see also #0)
-                if (table->n_slots*2 > UINT64_MAX / table->slot_size){
-                    fprintf(stderr, 
-                        "You reached maximum slots based on slot_size.\n");
-                    errno = EOVERFLOW;
-                    return false;
-                }
-
-                IncHash *tmp_table =
-                    (IncHash*)malloc(sizeof(IncHash));
-
-                if (tmp_table == NULL){
-                    perror("_inchash_migrate() -> malloc()");
-                    return false;
-                }
-
-                const uint64_t old_file_size = 
-                    table->file_size;
-
-                const uint64_t new_file_size = 
-                    table->file_size +
-                    ((( // round-up to page/table->f_bsize
-                    ( INCHASH_CORE_METADATA_OFFSET
-                    + offsetof(IncHash, hash) // NOTE: where * 2 happens
-                    + ((uint64_t)table->n_slots * 2) * table->slot_size)
-                    + table->f_bsize - 1) / table->f_bsize) * table->f_bsize);
-
-                // Sanity Check (see also #0)
-                if (new_file_size < old_file_size){
-                    fprintf(stderr, 
-                        "You reached maximum slots based on file_size.\n");
-                    errno = EOVERFLOW;
-                    return false;
-                }
-
-                if(munmap(table->map, table->file_size)){
-                    perror("_inchash_migrate() -> munmap()");
-                    return false;
-                }
-
-                if (ftruncate(table->fd, new_file_size)){
-                    perror("_inchash_migrate() -> ftruncate()");
-                    return false;
-                }
-                
-                // Memory-Map the file
-                table->map = mmap(NULL, new_file_size, table->flags, 
-                    MAP_SHARED, table->fd, 0
-                );
-
-                // check if it was successful
-                if (table->map == MAP_FAILED){
-                    perror("_inchash_migrate() -> mmap()");
-                    return false;
-                }
-
-                // NOTE: we don't need to set INCHASH_CORE_METADATA_OLD;
-                // ftruncate zeros data already for us.
-
-                // copy table into OLD
-                memcpy(tmp_table, table, sizeof(IncHash));
-
-                // Reset table to NEW
-                table->old = tmp_table;            // reference OLD from NEW
-                table->slotbit++;                  // add one bit (power-of-2)
-                table->offset = old_file_size;     // set offset from OLD
-                table->file_size = new_file_size;  // set new file_size
-                table->n_slots *= 2;               // double the number-of-slots
-                table->maximum *= 2;               // double the maximum of ^^^^
-                table->occupants = 0;              // reset occupants
-                table->cur_index = 0;              // reset Migration-cursor
-                table->slot_mask = (table->n_slots -1);
+                return true;
             }
 
-            return true;
-        }
+
+
+            /**
+            * @brief Migrates a `steps`-amount of slots.
+            *
+            * @param table    An IncHash struct.
+            * @param steps    The amount of check-steps.
+            *
+            * @return Always `true` unless error (errno)
+            */
+            bool inchash_migrate(IncHash* table, uint32_t steps)
+            {
+                return _inchash_migrate(table->old, table, steps);
+            }
 
 
 
-        /**
-         * @brief Migrates a `steps`-amount of slots.
-         *
-         * @param table    An IncHash struct.
-         * @param steps    The amount of check-steps.
-         *
-         * @return Always `true` unless error (errno)
-         */
-        bool inchash_migrate(IncHash* table, uint32_t steps)
-        {
-            return _inchash_migrate(table->old, table, steps);
-        }
+            /**
+            * @brief Migrates all the remaining slots from the old table.
+            *
+            * @param table    An IncHash struct.
+            *
+            * @return Always `true` unless error (errno)
+            */
+            bool inchash_migrate_remaining(IncHash* table)
+            {
+                return _inchash_migrate(table->old, table, UINT32_MAX);
+            }
 
+        #endif // defined(INCHASH_CORE_UNRESIZABLE)
 
-
-        /**
-         * @brief Migrates all the remaining slots from the old table.
-         *
-         * @param table    An IncHash struct.
-         *
-         * @return Always `true` unless error (errno)
-         */
-        bool inchash_migrate_remaining(IncHash* table)
-        {
-            return _inchash_migrate(table->old, table, UINT32_MAX);
-        }
 
 
         /**
@@ -1087,9 +1217,16 @@
          */
         bool inchash_mod(IncHash* table, inchcpy update, const void* key, const void* ctx)
         {
-            // update & do a few migration-checks.
+            // update & ...
             update(inchash_get(table, key), ctx, table->val_len);
-            return _inchash_migrate(table->old, table, 0);
+
+            #if defined(INCHASH_CORE_UNRESIZABLE)
+                // ... return
+                return true;
+            #else
+                // ... do a few migration-checks.
+                return _inchash_migrate(table->old, table, 0);
+            #endif
         }
 
 
@@ -1105,8 +1242,12 @@
          */
         bool inchash_del(IncHash* table, const void* key)
         {
-            return _inchash_del(table, key) &&
-                   _inchash_migrate(table->old, table, 0);
+            #if defined(INCHASH_CORE_UNRESIZABLE)
+                return _inchash_del(table, key);
+            #else
+                return _inchash_del(table, key) &&
+                       _inchash_migrate(table->old, table, 0);
+            #endif
         }
 
 
@@ -1125,14 +1266,20 @@
                     (uint8_t*)table->map + INCHASH_CORE_METADATA_OFFSET
                     , table->old
                     , offsetof(IncHash, hash));
+
                 // Write table metadata that there is OLD table and NEW
-                // NOTE: #5
-                ((uint32_t *)table->map)[0] = INCHASH_CORE_METADATA_OLD;
+                ((uint8_t *)table->map)[INCHASH_CORE_METADATA_HAS_OLD_OFFSET] = 
+                    INCHASH_CORE_METADATA_OLD;
             }else{
                 // Write table metadata that there is no OLD table only NEW
-                // NOTE: #5
-                ((uint32_t *)table->map)[0] = INCHASH_CORE_METADATA_NEW;
+                ((uint8_t *)table->map)[INCHASH_CORE_METADATA_HAS_OLD_OFFSET] = 
+                    INCHASH_CORE_METADATA_NEW;
             }
+
+            // Mark table that lives in the beginning of the file 
+            //(either old or new) with version ( NOTE: see #7)
+            ((uint8_t *)table->map)[INCHASH_CORE_METADATA_VERSION_OFFSET] = 
+                INCHASH_CORE_VERSION;
 
             memcpy(
                 (uint8_t*)table->map + table->offset + INCHASH_CORE_METADATA_OFFSET 
@@ -1231,6 +1378,8 @@
  *    for home is 0 (ftruncate)
  *    for the 1st displacement still 0
  *    for the 2nd displacement and on is 1
+ *
+ *  - ##8 If I ever use them might want to add them at `inchash_sync`
  *
  *
  * OTHER:
