@@ -60,7 +60,16 @@ for anything more than that you should look into the [examples](./examples) fold
 ## Documentation
 The library file itself is fairly self explanatory and well documented. That said, everything is listed here too.
 
-1. **Main Functions:**
+
+1. **Macro Optimizations:**
+
+```c
+#define INCHASH_CORE_UNRESIZABLE /* Disables resizability logic */
+#define INCHASH_CORE_HASH FNV1A  /* Sets a core hash-function. Reduces indirect calls */
+```
+
+
+2. **Main Functions:**
 
 ```c
 bool  inchash_open  (IncHash* table, const char* path, int flags, mode_t mode);
@@ -207,7 +216,7 @@ bool inchash_mod(IncHash* table, inchcpy update, const void* key, const void* ct
 
 
 
-2. **Extra Functions:**
+3. **Extra Functions:**
 ```c
 static inline uint32_t
      inchash_occupants         (IncHash* table);
