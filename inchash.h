@@ -870,6 +870,9 @@
                     table->old = NULL;
                     table->offset = 0;
 
+                    // We set `errno` to `ENOENT` for `inchash_del`
+                    errno = ENOENT;
+
                     // unmap the whole file
                     if(munmap(table->map, table->file_size)){
                         perror("_inchash_migrate() -> collapse -> munmap()");
@@ -914,6 +917,10 @@
 
             // if full create a new table & keep old as reference for migration
             if (table->occupants == table->maximum){
+
+                // We set `errno` to `ENOENT` for `inchash_del`
+                errno = ENOENT;
+
                 if (table->slotbit == 31){
                     fprintf(stderr, 
                         "You reached the maximum limit of 2^31 slots.\n");
