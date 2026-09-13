@@ -1041,6 +1041,11 @@
          */
         bool inchash_set(IncHash* table, const void* key, const void* val)
         {
+            // Do a few (migration + overflow) checks.
+            // ( ensures that we can add new keys )
+            if (!_inchash_migrate(table->old, table, 0))
+                return false;
+
             void* found = inchash_get(table, key); // see #6
 
             // If key was found inside one of the tables
@@ -1052,8 +1057,8 @@
             else
                 _inchash_new(table, memcpy, key, val);
 
-            // Finally do a few migration-checks.
-            return _inchash_migrate(table->old, table, 0);
+            // If checks didn't fail simply return true
+            return true;
         }
 
 
