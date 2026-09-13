@@ -200,7 +200,8 @@ bool inchash_mod(IncHash* table, inchcpy update, const void* key, const void* ct
   * @param key     Key associated with value.
   * @param ctx     Value\Context passed to the `update` callback.
   *
-  * @return `true` unless migration fails. (errno)
+  * @return `true` unless migration fails. Even if it fails, the value
+  * should still `update` successfully. (errno)
   */
 ```
 
