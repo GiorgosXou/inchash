@@ -17,3 +17,5 @@ compile_commands.json
 /examples/userdata.inch
 /examples/phonebook.inch
 
+# test binaries
+/tests/test_with_sequence_replay
