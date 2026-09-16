@@ -38,10 +38,9 @@
         FNV1A,
         // splitmix64 (taken from klib's khashl.h)
         // https://nullprogram.com/blog/2018/07/31/
-        // WARN: Assumes alignment: `alignof(uint64_t)`
         SPLITMIX64,
-        // fmix32 portion of MurmurHash3 (taken from klib's khashl.h)
-        // WARN: Assumes alignment: `alignof(uint32_t)`
+        // fmix32 portion of MurmurHash3
+        // (taken from klib's khashl.h)
         MURMURMIX32
     };
 
@@ -261,14 +260,15 @@
         /**
          * @brief splitmix64 (taken from klib's khashl.h)
          *
-         * @param key   Assumes an alignment: `alignof(uint64_t)`
+         * @param key
          * @param len   (unused, assumes sizeof 8-bytes)
          *
          * @return 
          */
         static uint32_t inchash_mix64(const void *key, uint32_t len)
         { /* splitmix64; see https://nullprogram.com/blog/2018/07/31/ for inversion */
-            uint64_t x = *(const uint64_t *) key;
+            uint64_t x;
+            memcpy(&x, key, sizeof x);
 	        x ^= x >> 30;
 	        x *= 0xbf58476d1ce4e5b9ULL;
 	        x ^= x >> 27;
@@ -282,14 +282,15 @@
         /**
          * @brief fmix32 portion of MurmurHash3 (taken from klib's khashl.h)
          *
-         * @param key   Assumes an alignment: `alignof(uint32_t)`
+         * @param key
          * @param len   (unused, assumes sizeof 4-bytes)
          *
          * @return 
          */
         static uint32_t inchash_mix32(const void *key, uint32_t len)
         { /* murmur finishing */
-            uint32_t x = *(const uint32_t *) key;
+            uint32_t x;
+            memcpy(&x, key, sizeof x);
 	        x ^= x >> 16;
 	        x *= 0x85ebca6bU;
 	        x ^= x >> 13;
