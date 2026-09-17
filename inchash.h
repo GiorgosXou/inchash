@@ -898,7 +898,6 @@
                     void *const slot_val =
                         slot_key + table->key_len;
 
-                    *slot_state = INCHASH_SLOT_OCCUPIED;
                     *slot_ihome = (uint8_t)(home_index);
                     
                     *home_has_multiple_displacements = // (see #4)
@@ -912,6 +911,9 @@
 
                     memcpy(slot_key, key, table->key_len);
                     update(slot_val, val, table->val_len);
+
+                    // Commit changes, mark slot as occupied
+                    *slot_state = INCHASH_SLOT_OCCUPIED;
 
                     // Increment table's slot occupants
                     table->occupants++;
