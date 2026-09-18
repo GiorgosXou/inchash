@@ -135,7 +135,7 @@
      * ====================================
      */
     #define INCHASH_SLOT_METADATA_STATE_SIZE sizeof(uint8_t)  /* STATE = State */
-    #define INCHASH_SLOT_METADATA_IHOME_SIZE sizeof(uint8_t)  /* IHOME = Home index */
+    #define INCHASH_SLOT_METADATA_IHOME_SIZE sizeof(uint8_t)  /* IHOME = Home index (fingerprint) */
     #define INCHASH_SLOT_METADATA_MULTI_SIZE sizeof(uint8_t)  /* MULTI = Has Multiple Displacements */
     #define INCHASH_SLOT_METADATA_FINGS_SIZE sizeof(uint8_t)  /* FINGS = fingerprint */
     #define INCHASH_SLOT_METADATA_DISPS_SIZE sizeof(uint32_t) /* DISPS = Farthest from home displacement */
@@ -144,7 +144,7 @@
     // STATE = State
     #define INCHASH_SLOT_METADATA_STATE_OFFSET 0
 
-    // IHOME = Home index
+    // IHOME = Home index (fingerprint)
     #define INCHASH_SLOT_METADATA_IHOME_OFFSET \
     (                                          \
         INCHASH_SLOT_METADATA_STATE_SIZE       \
@@ -624,7 +624,7 @@
                 uint8_t* slot_state = // Slot State
                     (uint8_t*)(struct_offset + slot);
 
-                uint8_t* slot_ihome = // Slot home_index
+                uint8_t* slot_ihome = // Slot home_index (fingerprint)
                     (uint8_t* )(slot_state + INCHASH_SLOT_METADATA_IHOME_OFFSET);
 
                 uint8_t* slot_fingerprint = // Slot Fingerprint
@@ -675,7 +675,7 @@
                             slot_state = 
                                 (uint8_t*)(struct_offset + slot);
 
-                            slot_ihome = // Slot home_index
+                            slot_ihome = // Slot home_index (fingerprint)
                                 (uint8_t*)(
                                 slot_state + INCHASH_SLOT_METADATA_IHOME_OFFSET);
 
