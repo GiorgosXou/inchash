@@ -54,6 +54,7 @@ for anything more than that you should look into the [examples](./examples) fold
 - No benchmarks, feel free to contribute.
 - Early release no thread-safety yet.
 - No cross-endian compatibility.
+- [**Advantages** & details here.](./DETAILS.md)
 
 
 

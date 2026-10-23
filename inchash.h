@@ -1291,12 +1291,12 @@
 
 
             if (msync(table->map, table->file_size, MS_SYNC)) {
-                perror("inchash_close() -> msync()");
+                perror("inchash_sync() -> msync()");
                 return false;
             }
 
             if (fsync(table->fd)) {
-                perror("inchash_close() -> fsync()");
+                perror("inchash_sync() -> fsync()");
                 return false;
             }
 
