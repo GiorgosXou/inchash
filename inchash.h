@@ -391,7 +391,6 @@
                 #endif
 
                 // Set Defaults and stuff...
-                table->hash = get_hash_function_from(table->fn_type);
                 table->n_slots = 1ULL << table->slotbit; // 2^slotbit
                 table->f_bsize = sfs.f_bsize; // fs logical block-size
                 table->maximum = ((uint64_t)table->percent * (table->n_slots)) / 100;
@@ -522,9 +521,6 @@
                     }
                 #endif
 
-                // set the hash-function used for inchash_set\get [...]
-                table->hash = get_hash_function_from(table->fn_type);
-
                 // set offset of old-table file_size
                 table->offset = old_file_size; 
 
@@ -544,6 +540,9 @@
                     return false;
                 }
             }
+
+            // Set the hash-function used for inchash_set\get [...]
+            table->hash = get_hash_function_from(table->fn_type);
 
             // Store `mmap()` protection flags for later use
             table->flags = get_prot_from_open(flags);
