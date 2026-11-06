@@ -299,6 +299,13 @@ This is an insignificant portion of a larger research project I'm working on, wh
 - - - [Store C structs for multiple plarform use][22]
 - - - [How to use ftruncate in c99 without warning][25]
 - - - [Is errno thread-safe][26]
+- *CRCs:*
+- - [Wiki - Cyclic redundancy check][28]
+- - [CRC32 vs CRC32C?][29]
+- - [libcrc - crc32.c][30]
+- - [How do CRCs work?][32]
+- - [Hardware build: CRC calculation][33]
+- - [CRC algorithm Eplained][31]
 - *Similar Projects:*
 - - [Diskhash - Disk-based, persistent hash tables][1]
 - - [Stasher - Linear-hash table on disk][3]
@@ -337,6 +344,12 @@ If you found this project useful, or at least interesting, and would like to sup
 
 
 
+[33]: https://www.youtube.com/watch?v=sNkERQlK8j8 '2026-10-25 07:00:36 PM'
+[32]: https://www.youtube.com/watch?v=izG7qT0EpBw '2026-10-25 06:46:08 PM ⭐'
+[31]: https://imaarov.ir/blog/crc-checksum-algorithm-explained '2026-10-25 04:45:34 PM'
+[30]: https://github.com/lammertb/libcrc/blob/master/src/crc32.c '2026-10-25 03:57:43 PM'
+[29]: https://stackoverflow.com/a/26612761/11465149 '2026-10-25 03:51:21 PM'
+[28]: https://en.wikipedia.org/wiki/Cyclic_redundancy_check '2026-10-25 03:50:19 PM'
 [27]: https://en.wikipedia.org/wiki/Cdb_(software)
 [26]: https://stackoverflow.com/questions/1694164/is-errno-thread-safe
 [25]: https://stackoverflow.com/questions/26806764/how-to-use-ftruncate-in-c99-without-warning
