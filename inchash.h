@@ -1119,7 +1119,7 @@
                 const uint8_t *const slot_fingerprint = // Slot Fingerprint
                     slot_state + INCHASH_SLOT_METADATA_FINGS_OFFSET;
 
-                const void *const slot_key =
+                const uint8_t *const slot_key =
                     slot_state + INCHASH_SLOT_METADATA_OFFSET;
 
                 // If slot is not empty and all:
@@ -1197,10 +1197,10 @@
                     uint8_t *const slot_fingerprint = // Slot Fingerprint
                         slot_state + INCHASH_SLOT_METADATA_FINGS_OFFSET;
 
-                    void *const slot_key =
+                    uint8_t *const slot_key =
                         slot_state + INCHASH_SLOT_METADATA_OFFSET;
 
-                    void *const slot_val =
+                    uint8_t *const slot_val =
                         slot_key + table->key_len;
 
                     *slot_ihome = (uint8_t)(home_index);
@@ -1294,11 +1294,11 @@
 
                         // Check if slot exists
                         if (*cur_slot_state){
-                            const void *const cur_slot_key = 
+                            const uint8_t *const cur_slot_key =
                                 ( cur_slot_state 
                                 + INCHASH_SLOT_METADATA_OFFSET);
 
-                            const void *const cur_slot_val = 
+                            const uint8_t *const cur_slot_val =
                                 ( cur_slot_key 
                                 + old_table->key_len);
 
