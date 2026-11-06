@@ -139,7 +139,7 @@
 
 
 
-    typedef void* (*inchcpy)(void *restrict __dest, const void *restrict __src, size_t __n); // default = `memcpy()`
+    typedef void* (*inchcpy)(void* __dest, const void* __src, size_t __n); // default = `memcpy()`
     typedef uint32_t (*hashinc)(const void *key, uint32_t len);
     typedef struct IncHash IncHash;
 
