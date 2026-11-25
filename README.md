@@ -337,7 +337,7 @@ If you found this project useful, or at least interesting, and would like to sup
 
 
 
-<sub>(IncHash - aka. Incas, In-Cache or INC-hash)</sub>
+<sub>(IncHash - aka. Incas, In-Cache, In-Cash, INC-Hash or Incremental-[re]Hash)</sub>
 
 
 
